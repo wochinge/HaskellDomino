@@ -1,4 +1,8 @@
-module Lib
+module Lib (
+    initialGameState,
+    nextMove,
+    GameState
+)
     where
 
 import Prelude hiding (round)
