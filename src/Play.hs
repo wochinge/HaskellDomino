@@ -1,8 +1,11 @@
 module Play
   (
-  mkStoneSet, play, GameState
+  mkStoneSet, play, GameState, Hand, snake, hands, skips, player, stones
   )
 where
+
+import Data.Function((&))
+import Data.List(delete)
 
 data Stone = Stone Int Int
                 deriving (Eq, Show)
@@ -12,6 +15,12 @@ mkStoneSet min max = [Stone x y | x <- [min .. max], y <- [x .. max]]
 
 type DirectedStone = Stone
 type Snake = [DirectedStone]
+
+first :: DirectedStone -> Int
+first (Stone x _ ) = x
+
+second :: DirectedStone -> Int
+second (Stone _ x ) = x
 
 initSnake :: Snake
 initSnake = []
@@ -32,7 +41,7 @@ chunks :: [a] -> Int -> [[a]]
 chunks xs nrOfChunks =
     partitionBy chunkSize xs
     where
-        chunkSize = (length xs) `div` nrOfChunks
+        chunkSize = length xs `div` nrOfChunks
         partitionBy _ [] = []
         partitionBy n xs = take n xs : partitionBy n (drop n xs)
 
@@ -41,36 +50,101 @@ initGameState ps ss = GameState initSnake hs 0
   where
     hs = zipWith Hand ps $ chunks ss $ length ps
 
+bothResultsEqual :: Eq b => (a->b) -> (a->b) -> a -> Bool
+bothResultsEqual f g x = f x == g x
+
+getSums :: GameState player -> [Int]
+getSums  = map (sumStones . stones) . hands
+
 isStalled :: GameState player -> Bool
-isStalled state = ( skips state ) == ( length (hands state) )
+isStalled = bothResultsEqual skips (length.hands)
+
+isStalledWinner :: GameState player -> Bool
+isStalledWinner state = isStalled state && bothResultsEqual minimum head sums
+  where sums = getSums state
+
+isWinner :: GameState player -> Bool
+isWinner  = null . stones . head . hands
 
 isComplete :: GameState player -> Bool
-isComplete state = won || (isStalled state)
+isComplete state = any (state &) [isWinner , isStalled]
+
+sumStones :: [Stone] -> Int
+sumStones = sum . map sumOneStone
+  where sumOneStone (Stone a b) = a + b
+
+data MoveOutput = Skip | Play | Win deriving (Eq, Show)
+
+data MoveResult player = MoveResult
+  { snakeOut :: Snake
+  , hand :: Hand player
+  , output :: MoveOutput
+  } deriving Show
+
+data Fit = EndDirect | EndReverse | StartDirect | StartReverse deriving (Eq, Show)
+
+genPossibilities :: Int -> Int -> [(Stone, Fit)]
+genPossibilities start end =
+          genPoss end EndDirect EndReverse ++
+          genPoss start StartReverse StartDirect
   where
-    won = null $ stones $  ((hands state) !! 0)
+    genPoss dots ifFirst ifLast =
+      [ (Stone dots x , ifFirst) | x <- [dots..6]] ++
+      [ (Stone x dots , ifLast ) | x <- [0..dots]]
+
+addStone :: (Stone,Fit) -> Snake -> Snake
+addStone ( stone@(Stone a b), fit) snake
+  | fit == EndDirect = snake ++ [stone]
+  | fit == EndReverse = snake ++ [Stone b a]
+  | fit == StartDirect = stone : snake
+  | fit == StartReverse = Stone b a : snake
+
+move :: Snake -> Hand player -> MoveResult player
+move [] hand = MoveResult [selectedStone] outputHand Play
+  where
+    outputHand = Hand (player hand) ((tail.stones) hand)
+    selectedStone = (head.stones) hand
+move snake hand
+  | null (stones hand) = MoveResult snake hand Win
+  | null validMoves = MoveResult snake hand Skip
+  | null ( stones outputHand ) = MoveResult newSnake outputHand Win
+  | otherwise = MoveResult newSnake outputHand Play
+  where
+    possibilities = genPossibilities ((first.head) snake) $ (second.last) snake
+    stonesIn = stones hand
+    validMoves = filter ((`elem` stonesIn).fst) possibilities
+    selectedMove = head validMoves                        -- strategy goes here!
+    outputHand = Hand (player hand) $ delete (fst selectedMove) stonesIn
+    newSnake = addStone selectedMove snake
 
 nextMove :: GameState player -> GameState player
 nextMove state
-  | hasWon = state
-  | isStalled = GameState oldSnake rotatedHands oldSkips
+  | hasWon = GameState oldSnake oldHands (-1)
+  | isStalled state = GameState oldSnake rotatedHands oldSkips
   | otherwise = GameState newSnake newRotatedHands newSkips
   where
     oldSnake = snake state
     oldHands = hands state
-    rotatedHands = undefined
+    thisHand = head oldHands
+    rotatedHands = tail oldHands ++ [thisHand]
     oldSkips = skips state
-    hasWon = undefined
-    isStalled = undefined
-    newSnake = undefined
-    newRotatedHands = undefined
-    newSkips = undefined
+    hasWon = isWinner state || isStalledWinner state
+    result = move oldSnake thisHand
+    newSnake = snakeOut result
+    newRotatedHands = if output result == Win
+                          then hand result : tail oldHands
+                          else tail oldHands ++ [hand result]
+    newSkips = if output result == Skip then oldSkips+1 else 0
+
+isValid :: GameState player -> Bool
+isValid state = skips state >= 0
 
 movements :: GameState player -> [GameState player]
 movements initial = moves
-  where moves = initial : (map nextMove moves)
+  where moves = initial : map nextMove moves
 
 usefulMovements :: [GameState player] -> [GameState player]
-usefulMovements = takeWhile (not.isComplete)
+usefulMovements = takeWhile isValid
 
 play :: [player] -> [Stone] -> [GameState player]
 play players stones = usefulMovements $ movements $ initGameState players stones
