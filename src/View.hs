@@ -6,29 +6,14 @@ import Data.List(intercalate)
 import Graphics.Gloss
 import Graphics.Gloss.Data.Picture(Picture(..))
 import Play
-    ( GameState
-    , snake
-    , hands
-    , skips
-    , Hand
-    , player
-    , stones
+    ( GameState(..)
+    , Hand(..)
     , DirectedStone
     , first
     , second
     , Snake
+    , Hand
     )
-
-
-
-showHand :: Show player => Hand player -> String
-showHand hand = "Player " ++ show (player hand) ++ " = " ++ show (stones hand)
-
-showGameState :: Show player => GameState player -> [String]
-showGameState state =
-  ("Snake is " ++ show ( snake state) ) :
-  ("Number of skips: " ++ show (skips state)) :
-  map showHand (hands state)
 
 newtype ViewState player = ViewState
     { steps :: [GameState player]
@@ -96,6 +81,25 @@ positions =
     , ((xPositions !! 2, lowerLevel),Leftwards)
     ]
 
+playerPositions :: [Positioned]
+playerPositions =
+    [ ((0,250),Rightwards)
+    , ((300,0),Downwards)
+    , ((0,-250),Leftwards)
+    , ((-300,0),Upwards)
+    ]
+
+stonePositions :: [Positioned]
+stonePositions =
+    [ ((0,-50), Downwards)
+    , ((-25,-50), Downwards)
+    , ((25,-50), Downwards)
+    , ((-50,-50), Downwards)
+    , ((50,-50), Downwards)
+    , ((-75,-50), Downwards)
+    , ((75,-50), Downwards)
+    ]
+
 -- End of specific constants
 
 paintDots :: Int -> [Picture]
@@ -123,9 +127,18 @@ paintLocatedStone ( (x,y), Rightwards ) s = translate x y $ paintStone s
 paintSnake :: Snake-> [Picture]
 paintSnake = zipWith paintLocatedStone  positions
 
-paintState :: ViewState player -> Picture
-paintState vs = pictures $  paintSnake $ snake $ head $ steps vs
+paintHand :: Show player => Hand player -> Picture
+paintHand p = pictures $ scale 0.5 0.5 ( text $ show $ player p) : zipWith paintLocatedStone stonePositions (stones p)
 
+paintPlayer :: Show player =>Positioned ->  Hand player -> Picture
+paintPlayer ( (x,y), Upwards ) h = translate x y $ rotate (-90) $ paintHand h
+paintPlayer ( (x,y), Downwards ) h = translate x y $ rotate 90 $ paintHand h
+paintPlayer ( (x,y), Leftwards ) h = translate x y $ rotate 180 $ paintHand h
+paintPlayer ( (x,y), Rightwards ) h = translate x y $ paintHand h
+
+paintState :: Show player =>ViewState player -> Picture
+paintState vs = pictures $ paintSnake ( snake theState) ++ zipWith paintPlayer playerPositions ( hands theState )
+    where theState = head $ steps vs
 
 advanceState :: viewPort -> Float -> ViewState player -> ViewState player
 advanceState _ _ (ViewState ss@[s]) =  ViewState ss
@@ -133,5 +146,4 @@ advanceState _ _ (ViewState (s:ss)) = ViewState ss
 
 showGame :: Show player => [GameState player] -> IO ()
 showGame ss = do
-   putStrLn $ intercalate "\n" $ concatMap showGameState ( take 100 ss )
    simulate (InWindow "Nice Window" (800, 800) (10, 10)) green 4 (ViewState ss) paintState advanceState
