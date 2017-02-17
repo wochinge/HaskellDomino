@@ -1,7 +1,4 @@
 module Play
-  (
-  mkStoneSet, play, GameState, Hand, snake, hands, skips, player, stones, Snake, DirectedStone, first, second
-  )
 where
 
 import Data.Function((&))
