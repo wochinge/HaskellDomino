@@ -1,6 +1,6 @@
 module Play
   (
-  mkStoneSet, play, GameState, Hand, snake, hands, skips, player, stones
+  mkStoneSet, play, GameState, Hand, snake, hands, skips, player, stones, Snake, DirectedStone, first, second
   )
 where
 
