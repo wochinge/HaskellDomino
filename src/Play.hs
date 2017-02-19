@@ -4,20 +4,15 @@ where
 import Data.Function((&))
 import Data.List(delete)
 
-data Stone = Stone Int Int
-                deriving (Eq, Show)
+data Stone = Stone
+  { first  ::Int
+  , second :: Int
+} deriving (Eq, Show)
 
 mkStoneSet :: Int -> Int -> [Stone]
 mkStoneSet min max = [Stone x y | x <- [min .. max], y <- [x .. max]]
 
-type DirectedStone = Stone
-type Snake = [DirectedStone]
-
-first :: DirectedStone -> Int
-first (Stone x _ ) = x
-
-second :: DirectedStone -> Int
-second (Stone _ x ) = x
+type Snake = [Stone]
 
 initSnake :: Snake
 initSnake = []
