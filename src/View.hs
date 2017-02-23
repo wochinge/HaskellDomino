@@ -14,6 +14,14 @@ import Play
     , Hand
     )
 
+class ShowUnquoted a where
+  showWithoutQuotes :: a -> String
+  default showWithoutQuotes :: Show a => a -> String
+  showWithoutQuotes = show
+
+instance ShowUnquoted String where
+  showWithoutQuotes = id
+
 data LocatedPlayer player = LocatedPlayer
     { label :: player
     , position :: Point
@@ -36,7 +44,6 @@ data Positioning = Upwards | Downwards | Leftwards | Rightwards deriving Show
 dotPositions :: [Float]
 dotPositions = [-6,6,0]
 
--- Initial solution to paint, shitty
 -- y coordinates
 upperLevel,mediumLevel,lowerLevel :: Float
 (upperLevel, mediumLevel, lowerLevel) = (100,0,-100)
@@ -88,18 +95,9 @@ positions =
     , ((xPositions !! 2, lowerLevel),Leftwards)
     ]
 
--- playerPositions :: [Positioned]
--- playerPositions =
---     [ ((0,250),Rightwards)
---     , ((300,0),Downwards)
---     , ((0,-250),Leftwards)
---     , ((-300,0),Upwards)
---     ]
---
 handStonePositions :: [Point]
 handStonePositions =zip posX $ repeat (-50)
   where posX = 0 : concatMap (\x -> [-x,x]) [25,50..]
--- End of specific constants
 
 paintDots :: Int -> [Picture]
 paintDots n
@@ -132,29 +130,23 @@ paintSnake = zipWith paintLocatedStone  positions
 paintHand :: [Stone] -> Picture
 paintHand ss = pictures $ zipWith paintHandStone handStonePositions ss
 
--- paintPlayer :: Show player => Positioned ->  Hand player -> Picture
--- paintPlayer ( (x,y), Upwards ) h = translate x y $ rotate (-90) $ paintHand h
--- paintPlayer ( (x,y), Downwards ) h = translate x y $ rotate 90 $ paintHand h
--- paintPlayer ( (x,y), Leftwards ) h = translate x y $ rotate 180 $ paintHand h
--- paintPlayer ( (x,y), Rightwards ) h = translate x y $ paintHand h
-
-paintPlayer :: Show player => LocatedPlayer player -> Hand player -> Picture
+paintPlayer :: ShowUnquoted player => LocatedPlayer player -> Hand player -> Picture
 paintPlayer (LocatedPlayer name (x,y) angle) h =
     translate x y  $ rotate angle $ pictures
-      [ scale 0.5 0.5 $ text $ show name
+      [ scale 0.5 0.5 $ text $ showWithoutQuotes name
       , paintHand $ stones h
       ]
 
-paintPlayers :: (Eq player, Show player) => [LocatedPlayer player] -> [Hand player] -> [Picture]
+paintPlayers :: (Eq player, ShowUnquoted player) => [LocatedPlayer player] -> [Hand player] -> [Picture]
 paintPlayers poss hs = zipWith paintPlayer sortedPoss hs
     where
       sortedPoss = map selectPoss hs
       selectPoss h = fromJust $ find (\p -> label p == player h  ) poss
 
-paintWinner :: Show player => [LocatedPlayer player] -> player -> [Picture]
-paintWinner _ p  = [translate (-100) 20 $ scale 0.25 0.25 $ text $ "The winner is " ++ show p]
+paintWinner :: ShowUnquoted player => [LocatedPlayer player] -> player -> [Picture]
+paintWinner _ p  = [translate (-100) 20 $ scale 0.25 0.25 $ text $ "The winner is " ++ showWithoutQuotes p]
 
-paintState :: (Eq player, Show player) => ViewState player -> Picture
+paintState :: (Eq player, ShowUnquoted player) => ViewState player -> Picture
 paintState vs = pictures $ paintSnake ( snake theState) ++
                 paintPlayers (players vs) ( hands theState ) ++
                 theWinner
@@ -181,7 +173,7 @@ initViewState ss = ViewState ss posPlayers False
     positions = map (\x->(radiusx*sin x,radiusy*cos x)) angles ::[Point]
     posPlayers = map (\(pl,po,an) -> LocatedPlayer pl po an) $ zip3 players positions angles360
 
-showGame :: (Eq player, Show player) => [GameState player] -> IO ()
+showGame :: (Eq player, ShowUnquoted player) => [GameState player] -> IO ()
 showGame [] = return ()
 showGame ss =
    simulate (InWindow "Domino" (800, 800) (10, 10)) green 4 (initViewState ss) paintState advanceState

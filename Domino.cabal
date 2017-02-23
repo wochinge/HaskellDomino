@@ -19,6 +19,7 @@ library
   build-depends:       base >= 4.7 && < 5
                      , gloss
   default-language:    Haskell2010
+  default-extensions:  DefaultSignatures, FlexibleInstances, TypeSynonymInstances
 
 executable Domino-exe
   hs-source-dirs:      app

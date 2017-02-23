@@ -8,8 +8,8 @@ import System.Random.Shuffle (shuffleM)
 numPlayers:: Int
 numPlayers = 4
 
-players :: [Int]
-players = [1..numPlayers]
+-- players :: [Int]
+players = map show [1..numPlayers]
 
 minStoneHalfValue:: Int
 minStoneHalfValue = 0
