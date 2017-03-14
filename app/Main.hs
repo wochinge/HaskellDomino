@@ -9,7 +9,8 @@ numPlayers:: Int
 numPlayers = 4
 
 -- players :: [Int]
-players = map show [1..numPlayers]
+-- players = map (show. (1111*)) [1..numPlayers]
+players = ["Alice", "Bob", "Charlie", "Demian", "Eleanor", "Fedora", "Grace"]
 
 minStoneHalfValue:: Int
 minStoneHalfValue = 0

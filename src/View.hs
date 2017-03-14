@@ -31,7 +31,7 @@ data LocatedPlayer player = LocatedPlayer
 data ViewState player = ViewState
     { steps :: [GameState player]
     , players :: [LocatedPlayer player]
-    , lastHand :: Bool
+    , winner :: Maybe player
     }
 
 oneDot :: Picture
@@ -130,15 +130,37 @@ paintSnake = zipWith paintLocatedStone  positions
 paintHand :: [Stone] -> Picture
 paintHand ss = pictures $ zipWith paintHandStone handStonePositions ss
 
-paintPlayer :: ShowUnquoted player => LocatedPlayer player -> Hand player -> Picture
-paintPlayer (LocatedPlayer name (x,y) angle) h =
+paintPlayer :: (Eq player, ShowUnquoted player) => player -> Maybe player -> LocatedPlayer player -> Hand player -> Picture
+paintPlayer current winner (LocatedPlayer name (x,y) angle) h =
     translate x y  $ rotate angle $ pictures
-      [ scale 0.5 0.5 $ text $ showWithoutQuotes name
+      [ bgColor background
+      , scale 0.5 0.5 $ translate ( charHalfWidth * ( -nameLength ) ) 0 $ fgColor $ text nameString
       , paintHand $ stones h
       ]
+      where
+          nameString = showWithoutQuotes name
+          nameLength = genericLength nameString :: Float
+          wins = case winner of
+              Nothing -> False
+              Just theWinner -> name == fromJust winner
+          plays = name == current
+          bgColor
+            | wins = color white
+            | plays = color cyan
+            | otherwise = id
+          fgColor
+            | wins = color red
+            | plays = color black
+            | otherwise = id
+          background = if wins || plays then translate offset (charHalfHeight-offset) $ rectangleSolid (charWidth*nameLength+2*offset) (charHeight+2*offset) else blank
+          charHalfWidth = 30 :: Float
+          charWidth = 2*charHalfWidth
+          charHalfHeight = 30 :: Float
+          charHeight = 2*charHalfHeight
+          offset = 10 :: Float
 
-paintPlayers :: (Eq player, ShowUnquoted player) => [LocatedPlayer player] -> [Hand player] -> [Picture]
-paintPlayers poss hs = zipWith paintPlayer sortedPoss hs
+paintPlayers :: (Eq player, ShowUnquoted player) => [LocatedPlayer player] -> [Hand player] -> player -> Maybe player -> [Picture]
+paintPlayers poss hs current winner = zipWith (paintPlayer current winner) sortedPoss hs
     where
       sortedPoss = map selectPoss hs
       selectPoss h = fromJust $ find (\p -> label p == player h  ) poss
@@ -147,33 +169,30 @@ paintWinner :: ShowUnquoted player => [LocatedPlayer player] -> player -> [Pictu
 paintWinner _ p  = [translate (-100) 20 $ scale 0.25 0.25 $ text $ "The winner is " ++ showWithoutQuotes p]
 
 paintState :: (Eq player, ShowUnquoted player) => ViewState player -> Picture
-paintState vs = pictures $ paintSnake ( snake theState) ++
-                paintPlayers (players vs) ( hands theState ) ++
-                theWinner
+paintState vs = pictures $ paintSnake ( snake theState ) ++
+                paintPlayers (players vs) theHands ( player $ head theHands) (winner vs)
                 where
                   theState = head $ steps vs
-                  theWinner =  if lastHand vs
-                               then paintWinner (players vs) (player $ head $ hands theState)
-                               else [blank]
+                  theHands = hands theState
 
 advanceState :: viewPort -> Float -> ViewState player -> ViewState player
-advanceState _ _ (ViewState ss@[s] np _) =  ViewState ss np True -- Missing 'the winner is'
-advanceState _ _ (ViewState (s:ss) np _) = ViewState ss np False
+advanceState _ _ (ViewState ss@[s] np _) = ViewState ss np $ Just $ player $ head $ hands s
+advanceState _ _ (ViewState (s:ss) np _) = ViewState ss np Nothing
 
 initViewState :: [GameState player] -> ViewState player
-initViewState ss = ViewState ss posPlayers False
+initViewState ss = ViewState ss posPlayers Nothing
   where
     players = map player $ hands $ head ss
     numPlayers = genericLength players :: Float
     angleAdvance = 360 / numPlayers
     angles360 = [0,angleAdvance..(360-angleAdvance)]
     angles = map (* (2*pi/360)) angles360
-    radiusx = 280:: Float
-    radiusy = 250 :: Float
+    radiusx = 350 :: Float
+    radiusy = 350 :: Float
     positions = map (\x->(radiusx*sin x,radiusy*cos x)) angles ::[Point]
     posPlayers = map (\(pl,po,an) -> LocatedPlayer pl po an) $ zip3 players positions angles360
 
 showGame :: (Eq player, ShowUnquoted player) => [GameState player] -> IO ()
 showGame [] = return ()
 showGame ss =
-   simulate (InWindow "Domino" (800, 800) (10, 10)) green 4 (initViewState ss) paintState advanceState
+   simulate (InWindow "Domino" (900, 900) (10, 10)) green 4 (initViewState ss) paintState advanceState
