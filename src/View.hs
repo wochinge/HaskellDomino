@@ -30,6 +30,7 @@ data LocatedPlayer player = LocatedPlayer
 
 data ViewState player = ViewState
     { steps :: [GameState player]
+    , placements :: [PositionedStone]
     , players :: [LocatedPlayer player]
     , winner :: Maybe player
     }
@@ -37,12 +38,14 @@ data ViewState player = ViewState
 oneDot :: Picture
 oneDot = color black $ circleSolid 3
 
-
 data Positioning = Upwards | Downwards | Leftwards | Rightwards deriving Show
 
 -- Constants that are adequate only for 0..6 stone set
 dotPositions :: [Float]
 dotPositions = [-6,6,0]
+
+tableRadius :: Float
+tableRadius = 275
 
 -- y coordinates
 upperLevel,mediumLevel,lowerLevel :: Float
@@ -127,6 +130,9 @@ paintHandStone (x,y) s = translate x y $ rotate 90 $ paintStone s
 paintSnake :: Snake-> [Picture]
 paintSnake = zipWith paintLocatedStone  positions
 
+paintPositionedSnake :: [PositionedStone] -> [Picture]
+paintPositionedSnake pss = [translate (-430) (-430) $ color black $ scale 0.1 0.1  $ Text $ show pss]
+
 paintHand :: [Stone] -> Picture
 paintHand ss = pictures $ zipWith paintHandStone handStonePositions ss
 
@@ -165,22 +171,37 @@ paintPlayers poss hs current winner = zipWith (paintPlayer current winner) sorte
       sortedPoss = map selectPoss hs
       selectPoss h = fromJust $ find (\p -> label p == player h  ) poss
 
-paintWinner :: ShowUnquoted player => [LocatedPlayer player] -> player -> [Picture]
-paintWinner _ p  = [translate (-100) 20 $ scale 0.25 0.25 $ text $ "The winner is " ++ showWithoutQuotes p]
-
 paintState :: (Eq player, ShowUnquoted player) => ViewState player -> Picture
-paintState vs = pictures $ paintSnake ( snake theState ) ++
-                paintPlayers (players vs) theHands ( player $ head theHands) (winner vs)
+paintState vs = pictures $ color chartreuse ( circleSolid tableRadius ) : paintSnake ( snake theState ) ++
+                paintPlayers (players vs) theHands ( player $ head theHands) (winner vs) ++
+                paintPositionedSnake ( placements vs )
                 where
                   theState = head $ steps vs
                   theHands = hands theState
 
+type PositionedStone = (Positioned, Stone)
+
+data Side = Beginning | End
+
+
+
+newPlacement :: GameState player -> [PositionedStone] -> [PositionedStone]
+newPlacement (GameState [] _ _ ) pss = pss
+newPlacement (GameState (s:_) _ _ ) [] = [newPos]
+  where
+    how = if first s == second s then Upwards else Leftwards
+    newPos = (((0,0),how), s)
+newPlacement (GameState (s:_) _ _ ) pss = newPos:pss
+  where
+    how = if first s == second s then Upwards else Leftwards
+    newPos = (((0,0),how), s)
+
 advanceState :: viewPort -> Float -> ViewState player -> ViewState player
-advanceState _ _ (ViewState ss@[s] np _) = ViewState ss np $ Just $ player $ head $ hands s
-advanceState _ _ (ViewState (s:ss) np _) = ViewState ss np Nothing
+advanceState _ _ (ViewState ss@[s] positions np _) = ViewState ss (newPlacement s positions) np $ Just $ player $ head $ hands s
+advanceState _ _ (ViewState (s:ss) positions np _) = ViewState ss (newPlacement s positions) np Nothing
 
 initViewState :: [GameState player] -> ViewState player
-initViewState ss = ViewState ss posPlayers Nothing
+initViewState ss = ViewState ss [] posPlayers Nothing
   where
     players = map player $ hands $ head ss
     numPlayers = genericLength players :: Float

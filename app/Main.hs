@@ -4,10 +4,6 @@ import Play(mkStoneSet, play)
 import View(showGame)
 import System.Random.Shuffle (shuffleM)
 
--- TODO allow for different configurations
-numPlayers:: Int
-numPlayers = 4
-
 -- players :: [Int]
 -- players = map (show. (1111*)) [1..numPlayers]
 players = ["Alice", "Bob", "Charlie", "Demian", "Eleanor", "Fedora", "Grace"]
@@ -16,7 +12,7 @@ minStoneHalfValue:: Int
 minStoneHalfValue = 0
 
 maxStoneHalfValue:: Int
-maxStoneHalfValue = 6
+maxStoneHalfValue = 5
 
 main :: IO ()
 main = do
