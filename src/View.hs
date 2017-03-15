@@ -28,9 +28,16 @@ data LocatedPlayer player = LocatedPlayer
     , angle :: Float
     }
 
+data ViewableSnake = ViewableSnake
+  { leftWing :: [PositionedStone]
+  , rightWing :: [PositionedStone]
+  , centerIndex :: Int
+  , lastLength :: Int
+  } deriving Show
+
 data ViewState player = ViewState
     { steps :: [GameState player]
-    , placements :: [PositionedStone]
+    , viewable :: ViewableSnake
     , players :: [LocatedPlayer player]
     , winner :: Maybe player
     }
@@ -130,7 +137,7 @@ paintHandStone (x,y) s = translate x y $ rotate 90 $ paintStone s
 paintSnake :: Snake-> [Picture]
 paintSnake = zipWith paintLocatedStone  positions
 
-paintPositionedSnake :: [PositionedStone] -> [Picture]
+paintPositionedSnake :: ViewableSnake -> [Picture]
 paintPositionedSnake pss = [translate (-430) (-430) $ color black $ scale 0.1 0.1  $ Text $ show pss]
 
 paintHand :: [Stone] -> Picture
@@ -174,34 +181,42 @@ paintPlayers poss hs current winner = zipWith (paintPlayer current winner) sorte
 paintState :: (Eq player, ShowUnquoted player) => ViewState player -> Picture
 paintState vs = pictures $ color chartreuse ( circleSolid tableRadius ) : paintSnake ( snake theState ) ++
                 paintPlayers (players vs) theHands ( player $ head theHands) (winner vs) ++
-                paintPositionedSnake ( placements vs )
+                paintPositionedSnake ( viewable vs )
                 where
                   theState = head $ steps vs
                   theHands = hands theState
 
 type PositionedStone = (Positioned, Stone)
 
-data Side = Beginning | End
+initialViewableSnake :: ViewableSnake
+initialViewableSnake = ViewableSnake [] [] 0 0
 
-
-
-newPlacement :: GameState player -> [PositionedStone] -> [PositionedStone]
-newPlacement (GameState [] _ _ ) pss = pss
-newPlacement (GameState (s:_) _ _ ) [] = [newPos]
+newPlacement :: GameState player -> ViewableSnake -> ViewableSnake
+newPlacement (GameState [] _ _ ) vs = vs
+newPlacement gs (ViewableSnake _ _ _ 0) = ViewableSnake [newPos] [] 0 1
   where
-    how = if first s == second s then Upwards else Leftwards
-    newPos = (((0,0),how), s)
-newPlacement (GameState (s:_) _ _ ) pss = newPos:pss
+    stone = head $ snake gs
+    how = if first stone == second stone then Upwards else Leftwards
+    newPos = (((0,0),how), stone)
+newPlacement gs vs@(ViewableSnake ll rl pos len)
+  | doNothing = vs
+  | gotoRight = ViewableSnake ll (newPos:rl) pos (len+1)
+  | otherwise = ViewableSnake (newPos:ll) rl pos (len+1)
   where
-    how = if first s == second s then Upwards else Leftwards
-    newPos = (((0,0),how), s)
+    gotoRight = snk !! pos == (snd.head) ll
+    doNothing = length snk == len
+    snk = snake gs
+    stone = ( if gotoRight then last else head ) snk
+    reference = (fst.fst.fst) $ if gotoRight && (not.null) rl then head rl else head ll
+    x =  if gotoRight then  reference + 40 else reference - 40
+    newPos = (((x,0),Leftwards), stone) :: PositionedStone
 
 advanceState :: viewPort -> Float -> ViewState player -> ViewState player
 advanceState _ _ (ViewState ss@[s] positions np _) = ViewState ss (newPlacement s positions) np $ Just $ player $ head $ hands s
 advanceState _ _ (ViewState (s:ss) positions np _) = ViewState ss (newPlacement s positions) np Nothing
 
 initViewState :: [GameState player] -> ViewState player
-initViewState ss = ViewState ss [] posPlayers Nothing
+initViewState ss = ViewState ss initialViewableSnake posPlayers Nothing
   where
     players = map player $ hands $ head ss
     numPlayers = genericLength players :: Float
