@@ -11,6 +11,7 @@ import Play
     , Stone(..)
     , Snake
     , Hand
+    , isDouble
     )
 import VisibleStone
 
@@ -44,65 +45,16 @@ data ViewState player = ViewState
 
 data Positioning = Upwards | Downwards | Leftwards | Rightwards deriving Show
 
--- Constants for painting
-tableRadius :: Float
-tableRadius = 275
-
-windowSizeX :: Int
-windowSizeX = 900
-
-windowSizeY :: Int
-windowSizeY = 900
-
--- y coordinates
-upperLevel,mediumLevel,lowerLevel :: Float
-(upperLevel, mediumLevel, lowerLevel) = (100,0,-100)
-ascending1,ascending2,ascending3 :: Float
-[ascending1, ascending2, ascending3] = [10,10+widthStone,10+2*widthStone]
-[descending1, descending2, descending3] = map negate [ascending1, ascending2, ascending3]
--- x coordinates
-ascending,descending :: Float
-(ascending, descending) = (-190,190)
-xPositions :: [Float]
-xPositions = [-(4 * widthStone),-(3*widthStone)..(4*widthStone)]
-
--- stone coordinates for simple layout
 type Positioned = (Point,Positioning)
-positions :: [Positioned]
-positions =
-    [ ((xPositions !! 5, upperLevel),Leftwards)
-    , ((xPositions !! 4, upperLevel),Leftwards)
-    , ((xPositions !! 3, upperLevel),Leftwards)
-    , ((xPositions !! 2, upperLevel),Leftwards)
-    , ((xPositions !! 1, upperLevel),Leftwards)
-    , ((head xPositions, upperLevel),Leftwards)
 
-    , ((ascending, ascending3),Downwards)
-    , ((ascending, ascending2),Downwards)
-    , ((ascending, ascending1),Downwards)
+-- Constants for painting
+tableRadius = 275 :: Float
 
-    , ((head xPositions, mediumLevel),Rightwards)
-    , ((xPositions !! 1, mediumLevel),Rightwards)
-    , ((xPositions !! 2, mediumLevel),Rightwards)
-    , ((xPositions !! 3, mediumLevel),Rightwards)
-    , ((xPositions !! 4, mediumLevel),Rightwards)
-    , ((xPositions !! 5, mediumLevel),Rightwards)
-    , ((xPositions !! 6, mediumLevel),Rightwards)
-    , ((xPositions !! 7, mediumLevel),Rightwards)
-    , ((xPositions !! 8, mediumLevel),Rightwards)
+playerRadius = 350 :: Float
 
-    , ((descending, descending1),Downwards)
-    , ((descending, descending2),Downwards)
-    , ((descending, descending3),Downwards)
+windowSizeX = 900 :: Int
 
-    , ((xPositions !! 8, lowerLevel),Leftwards)
-    , ((xPositions !! 7, lowerLevel),Leftwards)
-    , ((xPositions !! 6, lowerLevel),Leftwards)
-    , ((xPositions !! 5, lowerLevel),Leftwards)
-    , ((xPositions !! 4, lowerLevel),Leftwards)
-    , ((xPositions !! 3, lowerLevel),Leftwards)
-    , ((xPositions !! 2, lowerLevel),Leftwards)
-    ]
+windowSizeY = 900 :: Int
 
 handStonePositions :: [Point]
 handStonePositions =zip posX $ repeat (-50)
@@ -117,11 +69,11 @@ paintLocatedStone ( (x,y), Rightwards ) s = translate x y $ paintStone s
 paintHandStone :: Point -> Stone -> Picture
 paintHandStone (x,y) s = translate x y $ rotate 90 $ paintStone s
 
-paintSnake :: Snake-> [Picture]
-paintSnake = zipWith paintLocatedStone  positions
+paintPositionedStone :: PositionedStone -> Picture
+paintPositionedStone = uncurry paintLocatedStone
 
 paintPositionedSnake :: ViewableSnake -> [Picture]
-paintPositionedSnake pss = [translate (-430) (-430) $ color black $ scale 0.1 0.1  $ Text $ show pss]
+paintPositionedSnake pss = map paintPositionedStone $ leftWing pss ++ rightWing pss
 
 paintHand :: [Stone] -> Picture
 paintHand ss = pictures $ zipWith paintHandStone handStonePositions ss
@@ -162,7 +114,7 @@ paintPlayers poss hs current winner = zipWith (paintPlayer current winner) sorte
       selectPoss h = fromJust $ find (\p -> label p == player h  ) poss
 
 paintState :: (Eq player, ShowUnquoted player) => ViewState player -> Picture
-paintState vs = pictures $ color chartreuse ( circleSolid tableRadius ) : paintSnake ( snake theState ) ++
+paintState vs = pictures $ color chartreuse ( circleSolid tableRadius ) :
                 paintPlayers (players vs) theHands ( player $ head theHands) (winner vs) ++
                 paintPositionedSnake ( viewable vs )
                 where
@@ -179,7 +131,7 @@ newPlacement (GameState [] _ _ ) vs = vs
 newPlacement gs (ViewableSnake _ _ _ 0) = ViewableSnake [newPos] [] 0 1
   where
     stone = head $ snake gs
-    how = if first stone == second stone then Upwards else Leftwards
+    how = if isDouble stone then Upwards else Rightwards
     newPos = (((0,0),how), stone)
 newPlacement gs vs@(ViewableSnake ll rl pos len)
   | doNothing = vs
@@ -190,9 +142,12 @@ newPlacement gs vs@(ViewableSnake ll rl pos len)
     doNothing = length snk == len
     snk = snake gs
     stone = ( if gotoRight then last else head ) snk
-    reference = (fst.fst.fst) $ if gotoRight && (not.null) rl then head rl else head ll
-    x =  if gotoRight then  reference + 40 else reference - 40
-    newPos = (((x,0),Leftwards), stone) :: PositionedStone
+    otherStone = if gotoRight && (not.null) rl then head rl else head ll
+    reference = (fst.fst.fst) otherStone
+    (how,movement) = if isDouble stone then (Upwards,heightStone/2) else (Rightwards,widthStone/2)
+    otherMovement = if isDouble $ snd otherStone then heightStone/2 else widthStone/2
+    x =  if gotoRight then  reference + movement + otherMovement else reference - movement - otherMovement
+    newPos = (((x,0),how), stone) :: PositionedStone
 
 advanceState :: viewPort -> Float -> ViewState player -> ViewState player
 advanceState _ _ (ViewState ss@[s] positions np _) = ViewState ss (newPlacement s positions) np $ Just $ player $ head $ hands s
@@ -206,9 +161,7 @@ initViewState ss = ViewState ss initialViewableSnake posPlayers Nothing
     angleAdvance = 360 / numPlayers
     angles360 = [0,angleAdvance..(360-angleAdvance)]
     angles = map (* (2*pi/360)) angles360
-    radiusx = 350 :: Float
-    radiusy = 350 :: Float
-    positions = map (\x->(radiusx*sin x,radiusy*cos x)) angles ::[Point]
+    positions = map (\x->(playerRadius*sin x,playerRadius*cos x)) angles ::[Point]
     posPlayers = map (\(pl,po,an) -> LocatedPlayer pl po an) $ zip3 players positions angles360
 
 showGame :: (Eq player, ShowUnquoted player) => [GameState player] -> IO ()

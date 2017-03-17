@@ -5,25 +5,19 @@ import Graphics.Gloss
 import Play ( Stone(..) )
 
 
-widthStone :: Float
-widthStone = 40
+widthStone = 40 :: Float
 
-heightStone :: Float
-heightStone = 20
+heightStone = 20 :: Float
 
-radiusDot :: Float
-radiusDot = 3
+radiusDot = 3 :: Float
 
-radiusButton :: Float
-radiusButton = 3
-
+radiusButton = 3 :: Float
 innerRadiusButton = radiusButton - 1
 
 oneDot :: Picture
 oneDot = color black $ circleSolid radiusDot
 
-dotPositions :: [Float]
-dotPositions = [-6,6,0]
+dotPositions = [-6,6,0] :: [Float]
 
 paintDots :: Int -> [Picture]
 paintDots n
@@ -36,10 +30,11 @@ paintStone :: Stone -> Picture
 paintStone ds = pictures $
     [ color white $ rectangleSolid widthStone heightStone
     , color black $ rectangleWire widthStone heightStone
-    , translate 0 moveLine $ color black $ line [(0,0),(0,heightStone)]
+    , translate 0 (-moveLine) $ color black $ line [(0,0),(0,heightStone)]
     , color orange $ circleSolid radiusButton
     , color black $ circle innerRadiusButton
-    ] ++ map (translate (-widthStone) 0) (paintDots $ first ds) ++ map (translate widthStone 0) (paintDots $ second ds)
+    ] ++ map (translate (-moveDots) 0) (paintDots $ first ds) ++
+    map (translate moveDots 0) (paintDots $ second ds)
     where
         moveLine = heightStone / 2
         moveDots = widthStone / 4

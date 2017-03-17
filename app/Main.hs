@@ -17,4 +17,5 @@ maxStoneHalfValue = 6
 main :: IO ()
 main = do
     randomStones <- shuffleM $ mkStoneSet minStoneHalfValue maxStoneHalfValue
+    print $ last $ play players randomStones
     showGame $ play players randomStones

@@ -2,7 +2,8 @@ module Play
 where
 
 import Data.Function((&))
-import Data.List(delete)
+import Data.List(delete, find)
+import Data.Maybe(isJust, fromJust)
 
 data Stone = Stone
   { first  ::Int
@@ -28,6 +29,9 @@ data GameState player = GameState
   , hands :: [Hand player]
   , skips:: NumberOfSkips
   } deriving Show
+
+isDouble :: Stone -> Bool
+isDouble s = first s == second s
 
 chunks :: [a] -> Int -> [[a]]
 chunks xs nrOfChunks =
@@ -75,27 +79,46 @@ data MoveResult player = MoveResult
 
 data Fit = EndDirect | EndReverse | StartDirect | StartReverse deriving (Eq, Show)
 
-genPossibilities :: Int -> Int -> [(Stone, Fit)]
+data Fitted s = FittedStone
+    { fitting :: Fit
+    , piece :: s
+    }
+
+genPossibilities :: Int -> Int -> [Fitted Stone]
 genPossibilities start end =
           genPoss end EndDirect EndReverse ++
           genPoss start StartReverse StartDirect
   where
     genPoss dots ifFirst ifLast =
-      [ (Stone dots x , ifFirst) | x <- [dots..6]] ++
-      [ (Stone x dots , ifLast ) | x <- [0..dots]]
+      [ FittedStone ifFirst (Stone dots x) | x <- [dots..6]] ++
+      [ FittedStone ifLast (Stone x dots) | x <- [0..dots]]
 
-addStone :: (Stone,Fit) -> Snake -> Snake
-addStone ( stone@(Stone a b), fit) snake
+addStone :: Fitted Stone -> Snake -> Snake
+addStone (FittedStone fit stone@(Stone a b)) snake
   | fit == EndDirect = snake ++ [stone]
   | fit == EndReverse = snake ++ [Stone b a]
   | fit == StartDirect = stone : snake
   | fit == StartReverse = Stone b a : snake
 
+preferDoubles :: [Stone] -> Stone
+preferDoubles ss
+    | isJust double = fromJust double
+    | otherwise = head ss
+    where
+        double = find isDouble ss
+
+preferFittedDoubles :: [Fitted Stone] -> Fitted Stone
+preferFittedDoubles ss
+    | isJust double = fromJust double
+    | otherwise = head ss
+    where
+        double = find (isDouble.piece) ss
+
 move :: Snake -> Hand player -> MoveResult player
 move [] hand = MoveResult [selectedStone] outputHand Play
   where
     outputHand = Hand (player hand) ((tail.stones) hand)
-    selectedStone = (head.stones) hand
+    selectedStone = preferDoubles $ stones hand
 move snake hand
   | null (stones hand) = MoveResult snake hand Win
   | null validMoves = MoveResult snake hand Skip
@@ -104,9 +127,9 @@ move snake hand
   where
     possibilities = genPossibilities ((first.head) snake) $ (second.last) snake
     stonesIn = stones hand
-    validMoves = filter ((`elem` stonesIn).fst) possibilities
-    selectedMove = head validMoves                        -- strategy goes here!
-    outputHand = Hand (player hand) $ delete (fst selectedMove) stonesIn
+    validMoves = filter ((`elem` stonesIn).piece) possibilities
+    selectedMove = preferFittedDoubles validMoves
+    outputHand = Hand (player hand) $ delete (piece selectedMove) stonesIn
     newSnake = addStone selectedMove snake
 
 nextMove :: GameState player -> GameState player
