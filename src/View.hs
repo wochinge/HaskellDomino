@@ -5,7 +5,6 @@ module View (
 import Data.List(intercalate, genericLength, find)
 import Data.Maybe(fromJust)
 import Graphics.Gloss
--- import Graphics.Gloss.Data.Picture(Picture(..))
 import Play
     ( GameState(..)
     , Hand(..)
@@ -13,7 +12,6 @@ import Play
     , Snake
     , Hand
     )
-
 import VisibleStone
 
 class ShowUnquoted a where
@@ -44,24 +42,29 @@ data ViewState player = ViewState
     , winner :: Maybe player
     }
 
--- Constants that are adequate only for 0..6 stone set
+data Positioning = Upwards | Downwards | Leftwards | Rightwards deriving Show
+
+-- Constants for painting
 tableRadius :: Float
 tableRadius = 275
 
-data Positioning = Upwards | Downwards | Leftwards | Rightwards deriving Show
+windowSizeX :: Int
+windowSizeX = 900
+
+windowSizeY :: Int
+windowSizeY = 900
 
 -- y coordinates
 upperLevel,mediumLevel,lowerLevel :: Float
 (upperLevel, mediumLevel, lowerLevel) = (100,0,-100)
 ascending1,ascending2,ascending3 :: Float
-(ascending1, ascending2, ascending3) = (10,50,90)
-descending1,descending2,descending3 :: Float
-(descending1, descending2, descending3) = (-10,-50,-90)
+[ascending1, ascending2, ascending3] = [10,10+widthStone,10+2*widthStone]
+[descending1, descending2, descending3] = map negate [ascending1, ascending2, ascending3]
 -- x coordinates
 ascending,descending :: Float
 (ascending, descending) = (-190,190)
 xPositions :: [Float]
-xPositions = [-160,-120..160]
+xPositions = [-(4 * widthStone),-(3*widthStone)..(4*widthStone)]
 
 -- stone coordinates for simple layout
 type Positioned = (Point,Positioning)
@@ -211,4 +214,4 @@ initViewState ss = ViewState ss initialViewableSnake posPlayers Nothing
 showGame :: (Eq player, ShowUnquoted player) => [GameState player] -> IO ()
 showGame [] = return ()
 showGame ss =
-   simulate (InWindow "Domino" (900, 900) (10, 10)) green 4 (initViewState ss) paintState advanceState
+   simulate (InWindow "Domino" (windowSizeX, windowSizeY) (10, 10)) green 4 (initViewState ss) paintState advanceState
