@@ -5,7 +5,7 @@ module View (
 import Data.List(intercalate, genericLength, find)
 import Data.Maybe(fromJust)
 import Graphics.Gloss
-import Graphics.Gloss.Data.Picture(Picture(..))
+-- import Graphics.Gloss.Data.Picture(Picture(..))
 import Play
     ( GameState(..)
     , Hand(..)
@@ -13,6 +13,8 @@ import Play
     , Snake
     , Hand
     )
+
+import VisibleStone
 
 class ShowUnquoted a where
   showWithoutQuotes :: a -> String
@@ -42,17 +44,11 @@ data ViewState player = ViewState
     , winner :: Maybe player
     }
 
-oneDot :: Picture
-oneDot = color black $ circleSolid 3
-
-data Positioning = Upwards | Downwards | Leftwards | Rightwards deriving Show
-
 -- Constants that are adequate only for 0..6 stone set
-dotPositions :: [Float]
-dotPositions = [-6,6,0]
-
 tableRadius :: Float
 tableRadius = 275
+
+data Positioning = Upwards | Downwards | Leftwards | Rightwards deriving Show
 
 -- y coordinates
 upperLevel,mediumLevel,lowerLevel :: Float
@@ -108,22 +104,6 @@ positions =
 handStonePositions :: [Point]
 handStonePositions =zip posX $ repeat (-50)
   where posX = 0 : concatMap (\x -> [-x,x]) [25,50..]
-
-paintDots :: Int -> [Picture]
-paintDots n
-    | n == 0 = []
-    | odd n = oneDot : paintDots (n-1)
-    | otherwise = [rotate 180 halfDots, halfDots]
-    where halfDots = pictures $ map (\x -> translate x 6 oneDot ) $ take (n `div` 2) dotPositions
-
-paintStone :: Stone -> Picture
-paintStone ds = pictures $
-    [ color white $ rectangleSolid 41 21
-    , color black $ rectangleWire 41 21
-    , color black $ line [(0,-10),(0,10)]
-    , color orange $ circleSolid 3
-    , color black $ circle 2
-    ] ++ map (translate (-10) 0) (paintDots $ first ds) ++ map (translate 10 0) (paintDots $ second ds)
 
 paintLocatedStone :: Positioned -> Stone -> Picture
 paintLocatedStone ( (x,y), Upwards ) s = translate x y $ rotate (-90) $ paintStone s

@@ -12,7 +12,7 @@ minStoneHalfValue:: Int
 minStoneHalfValue = 0
 
 maxStoneHalfValue:: Int
-maxStoneHalfValue = 5
+maxStoneHalfValue = 6
 
 main :: IO ()
 main = do
