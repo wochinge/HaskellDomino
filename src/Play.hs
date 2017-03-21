@@ -1,14 +1,25 @@
 module Play
-where
+( GameState(..)
+, Hand(..)
+, Stone(..)
+, Snake
+, isDouble
+, play
+, mkStoneSet
+) where
 
 import Data.Function((&))
 import Data.List(delete, find)
 import Data.Maybe(isJust, fromJust)
+import Debug.Hood.Observe
+import Generics.Deriving
+import Control.DeepSeq
 
 data Stone = Stone
   { first  ::Int
   , second :: Int
-} deriving (Eq, Show)
+} deriving (Eq, Show, Generic, NFData)
+instance Observable Stone
 
 mkStoneSet :: Int -> Int -> [Stone]
 mkStoneSet min max = [Stone x y | x <- [min .. max], y <- [x .. max]]
@@ -21,17 +32,16 @@ initSnake = []
 data Hand player = Hand
   { player :: player
   , stones :: [Stone]
-  } deriving (Show)
+  } deriving (Show, Generic)
+instance Observable player => Observable (Hand player)
 
 type NumberOfSkips = Int
 data GameState player = GameState
   { snake :: Snake
   , hands :: [Hand player]
   , skips:: NumberOfSkips
-  } deriving Show
-
-isDouble :: Stone -> Bool
-isDouble s = first s == second s
+  } deriving (Show,Generic)
+instance Observable player => Observable (GameState player)
 
 chunks :: [a] -> Int -> [[a]]
 chunks xs nrOfChunks =
@@ -100,24 +110,26 @@ addStone (FittedStone fit stone@(Stone a b)) snake
   | fit == StartDirect = stone : snake
   | fit == StartReverse = Stone b a : snake
 
-preferDoubles :: [Stone] -> Stone
+class MayHaveDouble a where
+    isDouble :: a -> Bool
+
+instance MayHaveDouble Stone where
+    isDouble s = first s == second s
+
+instance MayHaveDouble (Fitted Stone) where
+    isDouble = isDouble.piece
+
+preferDoubles :: MayHaveDouble a => [a] -> a
 preferDoubles ss
     | isJust double = fromJust double
     | otherwise = head ss
     where
         double = find isDouble ss
 
-preferFittedDoubles :: [Fitted Stone] -> Fitted Stone
-preferFittedDoubles ss
-    | isJust double = fromJust double
-    | otherwise = head ss
-    where
-        double = find (isDouble.piece) ss
-
 move :: Snake -> Hand player -> MoveResult player
 move [] hand = MoveResult [selectedStone] outputHand Play
   where
-    outputHand = Hand (player hand) ((tail.stones) hand)
+    outputHand = Hand (player hand)  $ delete selectedStone $ stones hand
     selectedStone = preferDoubles $ stones hand
 move snake hand
   | null (stones hand) = MoveResult snake hand Win
@@ -128,7 +140,7 @@ move snake hand
     possibilities = genPossibilities ((first.head) snake) $ (second.last) snake
     stonesIn = stones hand
     validMoves = filter ((`elem` stonesIn).piece) possibilities
-    selectedMove = preferFittedDoubles validMoves
+    selectedMove = preferDoubles validMoves
     outputHand = Hand (player hand) $ delete (piece selectedMove) stonesIn
     newSnake = addStone selectedMove snake
 

@@ -15,11 +15,14 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     View, Play, VisibleStone
+  exposed-modules:     View, Play, VisibleStone, NewPlacement, Graf
   build-depends:       base >= 4.7 && < 5
-                     , gloss
+                     , hood
+                     , generic-deriving
+                     , GLFW-b
+                     , deepseq
   default-language:    Haskell2010
-  default-extensions:  DefaultSignatures, FlexibleInstances, TypeSynonymInstances
+  default-extensions:  DefaultSignatures, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, DeriveGeneric, DeriveAnyClass
 
 executable Domino-exe
   hs-source-dirs:      app
@@ -29,6 +32,7 @@ executable Domino-exe
                      , random
                      , random-shuffle
                      , Domino
+                     , hood
   default-language:    Haskell2010
 
 test-suite Domino-test

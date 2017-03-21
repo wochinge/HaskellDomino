@@ -1,9 +1,10 @@
 module VisibleStone
-
-where
-import Graphics.Gloss
+( paintStone
+, heightStone
+, widthStone
+) where
+import Graf
 import Play ( Stone(..) )
-
 
 widthStone = 40 :: Float
 
