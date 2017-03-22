@@ -4,7 +4,6 @@ module View
 
 import Data.List(intercalate, genericLength, find)
 import Data.Maybe(fromJust, isJust)
-import Graf
 import Play
     ( GameState(..)
     , Hand(..)
@@ -21,9 +20,7 @@ import NewPlacement
     , Positioned
     , PositionedStone
     )
-import Debug.Hood.Observe
-import Generics.Deriving
-import Control.DeepSeq
+import Graphics.Gloss
 
 class ShowUnquoted a where
   showWithoutQuotes :: a -> String
@@ -37,19 +34,18 @@ data LocatedPlayer player = LocatedPlayer
     { label :: player
     , position :: Point
     , angle :: Float
-    } deriving (Show, Generic)
-instance Observable player => Observable (LocatedPlayer player)
+    } deriving (Show)
 
 data ViewState player = ViewState
     { steps :: [GameState player]
     , viewable :: ViewableSnake
     , players :: [LocatedPlayer player]
     , winner :: Maybe player
-    } deriving (Show, Generic)
-instance Observable player => Observable (ViewState player)
+    } deriving (Show)
 
 -- Constants for painting
 tableRadius = 275 :: Float
+usableRadius = tableRadius-25
 
 playerRadius = 350 :: Float
 
@@ -126,9 +122,9 @@ paintState vs = pictures $ color chartreuse ( circleSolid tableRadius ) :
                   theState = head $ steps vs
                   theHands = hands theState
 
-advanceState :: (Show player, Observable player) => ViewState player -> ViewState player
-advanceState (ViewState ss@[s] positions np _) = ViewState ss (newPlacement tableRadius s positions) np $ Just $ player $ head $ hands s
-advanceState (ViewState (s:ss) positions np _) = ViewState ss (newPlacement tableRadius s positions) np Nothing
+advanceState :: (Show player) => viewPort -> Float -> ViewState player -> ViewState player
+advanceState _ _ (ViewState ss@[s] positions np _) = ViewState ss (newPlacement usableRadius s positions) np $ Just $ player $ head $ hands s
+advanceState _ _ (ViewState (s:ss) positions np _) = ViewState ss (newPlacement usableRadius s positions) np Nothing
 
 initViewState :: [GameState player] -> ViewState player
 initViewState ss = ViewState ss initialViewableSnake posPlayers Nothing
@@ -141,11 +137,11 @@ initViewState ss = ViewState ss initialViewableSnake posPlayers Nothing
     positions = map (\x->(playerRadius*sin x,playerRadius*cos x)) angles ::[Point]
     posPlayers = map (\(pl,po,an) -> LocatedPlayer pl po an) $ zip3 players positions angles360
 
-showGame :: (Observable player, Eq player, ShowUnquoted player, Show player) => [GameState player] -> IO ()
+showGame :: (Eq player, ShowUnquoted player, Show player) => [GameState player] -> IO ()
 showGame [] = return ()
-showGame ss =
-    -- simulate (InWindow "Domino" (windowSizeX, windowSizeY) (10, 10)) green 4 (initViewState ss) paintState advanceState
+showGame ss = do
     let
-        stateList = initViewState ss : map advanceState stateList
+        stateList = initViewState ss : map (advanceState 0 0) stateList
         theLast = (fromJust . find (isJust.winner)) stateList
-    in putStrLn $ "steps=" ++ (show.steps) theLast ++ "\n\nviewable="++ (show.viewable) theLast
+    putStrLn $ "steps=" ++ (show.steps) theLast ++ "\n\nviewable="++ (show.viewable) theLast
+    simulate (InWindow "Domino" (windowSizeX, windowSizeY) (10, 10)) green 4 (initViewState ss) paintState advanceState

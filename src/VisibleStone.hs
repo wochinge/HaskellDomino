@@ -3,8 +3,8 @@ module VisibleStone
 , heightStone
 , widthStone
 ) where
-import Graf
 import Play ( Stone(..) )
+import Graphics.Gloss
 
 widthStone = 40 :: Float
 

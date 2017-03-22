@@ -11,15 +11,11 @@ module Play
 import Data.Function((&))
 import Data.List(delete, find)
 import Data.Maybe(isJust, fromJust)
-import Debug.Hood.Observe
-import Generics.Deriving
-import Control.DeepSeq
 
 data Stone = Stone
   { first  ::Int
   , second :: Int
-} deriving (Eq, Show, Generic, NFData)
-instance Observable Stone
+} deriving (Eq, Show)
 
 mkStoneSet :: Int -> Int -> [Stone]
 mkStoneSet min max = [Stone x y | x <- [min .. max], y <- [x .. max]]
@@ -32,16 +28,14 @@ initSnake = []
 data Hand player = Hand
   { player :: player
   , stones :: [Stone]
-  } deriving (Show, Generic)
-instance Observable player => Observable (Hand player)
+  } deriving (Show)
 
 type NumberOfSkips = Int
 data GameState player = GameState
   { snake :: Snake
   , hands :: [Hand player]
   , skips:: NumberOfSkips
-  } deriving (Show,Generic)
-instance Observable player => Observable (GameState player)
+  } deriving (Show)
 
 chunks :: [a] -> Int -> [[a]]
 chunks xs nrOfChunks =

@@ -5,7 +5,6 @@ module Main
 import Play(mkStoneSet, play)
 import View(showGame)
 import System.Random.Shuffle (shuffleM)
-import Debug.Hood.Observe
 
 -- players :: [Int]
 -- players = map (show. (1111*)) [1..numPlayers]
@@ -18,7 +17,7 @@ maxStoneHalfValue:: Int
 maxStoneHalfValue = 6
 
 main :: IO ()
-main = runO $ do
+main = do
     randomStones <- shuffleM $ mkStoneSet minStoneHalfValue maxStoneHalfValue
-    -- print $ last $ play players randomStones
+    print $ last $ play players randomStones
     showGame $ play players randomStones
